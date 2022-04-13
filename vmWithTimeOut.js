@@ -1,6 +1,6 @@
 const {NodeVM} = require('vm2');
 const cp = require('child_process');
-// var __filename = 'test1';
+var __filename = 'test1';
 // this function can safely be used from the main process. sandbox is limited to JSON values
 function run(code='', sandbox={}, timeout=1000){
   return new Promise((resolve, reject)=>{
@@ -21,12 +21,20 @@ function run(code='', sandbox={}, timeout=1000){
 
 // this function is only used from the spawned child process
 async function runVM(code='', sandbox={}){
-  code = `module.exports = async function(){ ${code} }`;
-  sandbox = Object.assign({wait: (n)=>new Promise(r=>setTimeout(r, n))}, sandbox); // you can still push functions to the sandbox if they're defined in the child process!
-  const vm = new NodeVM({wasm: false, eval: true, sandbox});
+//   code = `module.exports = async function(){ ${code} }`;
+//   sandbox = Object.assign({wait: (n)=>new Promise(r=>setTimeout(r, n))}, sandbox); // you can still push functions to the sandbox if they're defined in the child process!
+  const vm = new NodeVM({
+    require: {
+        external: true,
+        builtin: ["*"]
+    },
+    wrapper: false,
+    sandbox: {
+    }
+});
   const resultfn = vm.run(code);
-  const returnValue = await resultfn();
-  return {sandbox, returnValue};
+//   const returnValue = await resultfn();
+  return {sandbox, resultfn};
 }
 
 module.exports = { run }
@@ -37,7 +45,7 @@ if(typeof require !== 'undefined' && require.main === module){
     process.on('message', async function(m) {
       if(m.code && m.sandbox){
         const result = await runVM(m.code, m.sandbox);
-        console.log(result.resultfn);
+        // console.log(result.resultfn);
         process.send({type: 'finished', returnValue: result.returnValue, sandbox: result.sandbox});
         process.exit();
       }
