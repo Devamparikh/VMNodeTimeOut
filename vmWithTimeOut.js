@@ -1,6 +1,6 @@
 const {NodeVM} = require('vm2');
 const cp = require('child_process');
-var __filename = 'test1';
+// var __filename = 'test1';
 // this function can safely be used from the main process. sandbox is limited to JSON values
 function run(code='', sandbox={}, timeout=1000){
   return new Promise((resolve, reject)=>{
@@ -9,7 +9,7 @@ function run(code='', sandbox={}, timeout=1000){
     sub.on('message', (m)=>{
       if(m.type == 'finished'){
         clearTimeout(kto);
-        resolve({returnValue: m.returnValue, sandbox: m.sandbox});
+        resolve({returnValue: m.returnValue});
       }
     });
     sub.on('exit', function(c,s) {
@@ -21,19 +21,20 @@ function run(code='', sandbox={}, timeout=1000){
 
 // this function is only used from the spawned child process
 async function runVM(code='', sandbox={}){
-//   code = `module.exports = async function(){ ${code} }`;
-//   sandbox = Object.assign({wait: (n)=>new Promise(r=>setTimeout(r, n))}, sandbox); // you can still push functions to the sandbox if they're defined in the child process!
+//   code = `module.exports = ${code}`;
+  sandbox = Object.assign({wait: (n)=>new Promise(r=>setTimeout(r, n))}, sandbox); // you can still push functions to the sandbox if they're defined in the child process!
   const vm = new NodeVM({
     require: {
         external: true,
         builtin: ["*"]
     },
-    wrapper: false,
-    sandbox: {
-    }
+    // wrapper: false,
+    sandbox
 });
   const resultfn = vm.run(code);
+  console.log("resultfn: ", resultfn);
 //   const returnValue = await resultfn();
+//   console.log("returnValue: ", returnValue);
   return {sandbox, resultfn};
 }
 
@@ -46,7 +47,7 @@ if(typeof require !== 'undefined' && require.main === module){
       if(m.code && m.sandbox){
         const result = await runVM(m.code, m.sandbox);
         // console.log(result.resultfn);
-        process.send({type: 'finished', returnValue: result.returnValue, sandbox: result.sandbox});
+        process.send({type: 'finished', returnValue: result.resultfn, sandbox: result.sandbox});
         process.exit();
       }
     });
